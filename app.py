@@ -1,5 +1,56 @@
+import os
+import openai
 import streamlit as st
-import mh
+from dotenv import load_dotenv
+
+os.environ["SAMBANOVA_API_KEY"] = "f73bf144-c816-4e8b-a7c0-23dc86ada6f2"
+
+def create_llm_client(base_url="https://api.sambanova.ai/v1"):
+    """
+    Creates a secure LLM client with proper error handling.
+    Returns: OpenAI client instance.
+    """
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    # Get API key from environment variables
+    api_key = os.getenv("SAMBANOVA_API_KEY")
+    if not api_key:
+        raise ValueError("API key not found in environment variables")
+
+    try:
+        client = openai.OpenAI(api_key=api_key, base_url=base_url)
+        return client
+    except Exception as e:
+        raise ConnectionError(f"Failed to initialize API client: {str(e)}")
+
+def get_llm_response(client, prompt, model="Meta-Llama-3.1-8B-Instruct", temperature=0.7, top_p=0.9):
+    """
+    Sends a request to the LLM API with error handling.
+    
+    Args:
+        client: OpenAI client instance.
+        prompt: String prompt to send to the model.
+        model: Model identifier string.
+        temperature: Float between 0 and 1.
+        top_p: Float between 0 and 1.
+    
+    Returns: 
+        Generated response text.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a helpful chatbot."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=temperature,
+            top_p=top_p
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error getting LLM response: {str(e)}"
 
 def main():
     # Custom CSS for better styling
@@ -31,7 +82,7 @@ def main():
     # Initialize the LLM client with a loading spinner
     if 'client' not in st.session_state:
         with st.spinner("Setting up your personal wellness assistant..."):
-            st.session_state.client = mh.create_llm_client()
+            st.session_state.client = create_llm_client()
 
     # Create a chat interface
     if 'messages' not in st.session_state:
@@ -51,7 +102,7 @@ def main():
         # Get bot response with loading animation
         with st.chat_message("assistant", avatar="🤖"):
             with st.spinner("Thinking..."):
-                response = mh.get_llm_response(
+                response = get_llm_response(
                     st.session_state.client,
                     prompt,
                     model="Meta-Llama-3.1-8B-Instruct",
@@ -75,6 +126,6 @@ def main():
         
         🤖 You're not alone in this journey.
         """)
-        
+
 if __name__ == "__main__":
     main()
