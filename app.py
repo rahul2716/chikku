@@ -1,9 +1,20 @@
+import pymongo
+from pymongo import MongoClient
 import os
 import openai
 import streamlit as st
 from dotenv import load_dotenv
+import datetime
 
 os.environ["SAMBANOVA_API_KEY"] = "f73bf144-c816-4e8b-a7c0-23dc86ada6f2"
+
+def connect_to_mongodb():
+    password = "B4DxRahulOp"
+    uri = f"mongodb+srv://rahulpandeyk8220:{password}@chikku.rqvyz.mongodb.net/"
+    client = MongoClient(uri)
+    db = client.project0  # Connect to project0 database
+    return db
+
 
 def create_llm_client(base_url="https://api.sambanova.ai/v1"):
     """
@@ -52,7 +63,23 @@ def get_llm_response(client, prompt, model="Meta-Llama-3.1-8B-Instruct", tempera
     except Exception as e:
         return f"Error getting LLM response: {str(e)}"
 
+def save_chat_message(db, user_id, message):
+    chat_collection = db.chats
+    chat_doc = {
+        "user_id": user_id,
+        "role": message["role"],
+        "content": message["content"],
+        "timestamp": datetime.datetime.now()
+    }
+    chat_collection.insert_one(chat_doc)
+
 def main():
+    # Initialize MongoDB connection
+    db = connect_to_mongodb()
+    # Store it in session state for reuse
+    if 'mongodb' not in st.session_state:
+        st.session_state.mongodb = db
+
     # Custom CSS for better styling
     st.markdown("""
         <style>
@@ -95,7 +122,10 @@ def main():
 
     # Enhanced chat input
     if prompt := st.chat_input("Share what's on your mind... 💭"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        message = {"role": "user", "content": prompt}
+        st.session_state.messages.append(message)
+        # Save to MongoDB
+        save_chat_message(st.session_state.mongodb, "user123", message)
         with st.chat_message("user", avatar="🧑"):
             st.markdown(prompt)
 
@@ -129,3 +159,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
