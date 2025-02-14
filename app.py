@@ -10,10 +10,13 @@ os.environ["SAMBANOVA_API_KEY"] = "f73bf144-c816-4e8b-a7c0-23dc86ada6f2"
 
 def connect_to_mongodb():
     password = "B4DxRahulOp"
-    uri = f"mongodb+srv://rahulpandeyk8220:{password}@chikku.rqvyz.mongodb.net/"
-    client = MongoClient(uri)
-    db = client.project0  # Connect to project0 database
+    uri = f"mongodb+srv://rahulpandeyk8220:{password}@chikku.rqvyz.mongodb.net/?ssl=true&ssl_cert_reqs=CERT_NONE"
+    client = MongoClient(uri, 
+                        tls=True,
+                        tlsAllowInvalidCertificates=True)
+    db = client.project0
     return db
+
 
 
 def create_llm_client(base_url="https://api.sambanova.ai/v1"):
@@ -23,6 +26,7 @@ def create_llm_client(base_url="https://api.sambanova.ai/v1"):
     """
     # Load environment variables from .env file
     load_dotenv()
+    
     
     # Get API key from environment variables
     api_key = os.getenv("SAMBANOVA_API_KEY")
@@ -35,7 +39,7 @@ def create_llm_client(base_url="https://api.sambanova.ai/v1"):
     except Exception as e:
         raise ConnectionError(f"Failed to initialize API client: {str(e)}")
 
-def get_llm_response(client, prompt, model="Meta-Llama-3.1-8B-Instruct", temperature=0.7, top_p=0.9):
+def get_llm_response(client, prompt, model="deepseek-ai/deepseek-r1-distill-70b", temperature=0.7, top_p=0.9):
     """
     Sends a request to the LLM API with error handling.
     
@@ -73,6 +77,44 @@ def save_chat_message(db, user_id, message):
     }
     chat_collection.insert_one(chat_doc)
 
+def chat():
+    """
+    Runs a chatbot loop where the user can continuously interact with the LLM.
+    """
+    prompt = """You are a knowledgeable and compassionate mental wellness guide with expertise in:
+
+1. Providing clear, actionable strategies for mental wellbeing
+2. Sharing evidence-based techniques for managing stress and anxiety
+3. Offering practical tools for emotional regulation
+4. Building resilience through proven methods
+5. Teaching mindfulness and meditation practices
+6. Recommending lifestyle improvements for better mental health
+7. Guiding positive habit formation
+8. Fostering healthy thought patterns
+9. Promoting self-care routines
+10. Strengthening emotional intelligence
+
+Deliver responses with confidence, warmth, and directness. Focus on practical solutions and positive actions. Share specific techniques, exercises, and strategies that users can implement immediately. Keep responses action-oriented and empowering."""
+
+    try:
+        client = create_llm_client()
+        print("Chatbot is ready! Type 'exit' to quit.")
+
+        while True:
+            user_input = input("You: ")
+            if user_input.lower() == "exit":
+                print("Chatbot: Goodbye! Have a great day.")
+                break
+            
+            # Fixed: Pass user_input as the prompt parameter
+            response = get_llm_response(client, prompt)
+
+            print(f"Chatbot: {response}")
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
+
 def main():
     # Initialize MongoDB connection
     db = connect_to_mongodb()
@@ -89,6 +131,7 @@ def main():
             font-weight: bold;
             text-align: center;
             margin-bottom: 20px;
+            background-color:red;
         }
         .subtitle {
             color: #566573;
@@ -115,10 +158,7 @@ def main():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    # Display chat history with enhanced styling
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"], avatar="🧑" if message["role"] == "user" else "🤖"):
-            st.markdown(message["content"])
+  
 
     # Enhanced chat input
     if prompt := st.chat_input("Share what's on your mind... 💭"):
@@ -141,23 +181,22 @@ def main():
                 st.markdown(response)
         
         st.session_state.messages.append({"role": "assistant", "content": response})
+      # Enhanced sidebar with chat history organization
+        with st.sidebar:
+          st.markdown("📌 Important Information")
+          st.info("""
+          🤝 This is your supportive AI companion for mental health guidance.
+        
+          🚨 In case of emergency:
+          • Call 108 immediately
+        
+          ⚕️ Remember: 
+          This tool complements but does not replace professional mental healthcare.
+        
+          🤖 You're not alone in this journey.
+          """)
+        
 
-    # Enhanced sidebar with better formatting
-    with st.sidebar:
-        st.markdown("### 📌 Important Information")
-        st.info("""
-        🤝 This is your supportive AI companion for mental health guidance.
-        
-        🚨 In case of emergency:
-        • Call 108 immediately
-        
-        ⚕️ Remember: 
-        This tool complements but does not replace professional mental healthcare.
-        
-        🤖 You're not alone in this journey.
-        """)
-
+                      
 if __name__ == "__main__":
     main()
-
-
